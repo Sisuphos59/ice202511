@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>经营路上的“护身符”</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* --- iOS 风格基础设置 --- */
+        :root {
+            --ios-bg: #F2F2F7;
+            --ios-card: #FFFFFF;
+            --ios-text-primary: #1C1C1E;
+            --ios-text-secondary: #8E8E93;
+            --ios-blue: #007AFF;
+            --ios-red: #FF3B30;
+            --ios-green: #34C759;
+            --ios-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+            --safe-area-bottom: env(safe-area-inset-bottom);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "Roboto", "Inter", sans-serif;
+            background-color: var(--ios-bg);
+            color: var(--ios-text-primary);
+            -webkit-tap-highlight-color: transparent;
+            overscroll-behavior-y: none; /* 防止橡皮筋效果 */
+        }
+
+        /* 隐藏滚动条但保留功能 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* --- 动画类 --- */
+        .page-transition {
+            transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.4s ease;
+        }
+        
+        .fade-enter { opacity: 0; transform: scale(0.98); }
+        .fade-enter-active { opacity: 1; transform: scale(1); }
+        .fade-exit { opacity: 1; transform: scale(1); }
+        .fade-exit-active { opacity: 0; transform: scale(0.98); }
+
+        .slide-up-enter { transform: translateY(100%); }
+        .slide-up-active { transform: translateY(0); }
+        .slide-up-exit { transform: translateY(100%); }
+
+        /* --- UI 组件细节 --- */
+        .ios-card {
+            background: var(--ios-card);
+            border-radius: 20px;
+            box-shadow: var(--ios-shadow);
+        }
+
+        .ios-btn {
+            transition: transform 0.1s ease, background-color 0.2s;
+        }
+        .ios-btn:active {
+            transform: scale(0.96);
+        }
+
+        .glass-header {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 0.5px solid rgba(0,0,0,0.1);
+        }
+
+        /* 类似 iMessage 的气泡 */
+        .chat-bubble {
+            position: relative;
+            background: #F2F2F7;
+            border-radius: 18px;
+            padding: 12px 16px;
+            font-size: 15px;
+            line-height: 1.5;
+            color: #000;
+        }
+        .chat-bubble::before {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: -6px;
+            width: 20px;
+            height: 20px;
+            background: #F2F2F7;
+            border-bottom-right-radius: 16px;
+            z-index: -1;
+        }
+        .chat-bubble::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: -10px;
+            width: 10px;
+            height: 20px;
+            background: var(--ios-card); /* 遮挡 */
+            border-bottom-right-radius: 10px;
+            z-index: -1;
+        }
+
+        /* 底部弹窗 Sheet */
+        .sheet-overlay {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+            transition: opacity 0.3s ease;
+        }
+        .bottom-sheet {
+            border-top-left-radius: 24px;
+            border-top-right-radius: 24px;
+            box-shadow: 0 -4px 30px rgba(0,0,0,0.15);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* 进度条动画 */
+        .progress-fill {
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* 字体优化 */
+        .font-serif-sc { font-family: "Noto Serif SC", serif; }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col items-center bg-gray-50">
+
+    <!-- 手机外框模拟 (仅在大屏显示) -->
+    <div class="w-full h-full max-w-[440px] relative bg-[#F2F2F7] sm:shadow-2xl sm:h-[95vh] sm:my-auto sm:rounded-[40px] overflow-hidden flex flex-col">
+        
+        <!-- 顶部导航栏 (Glassmorphism) -->
+        <header id="nav-header" class="glass-header absolute top-0 left-0 right-0 z-20 px-6 pt-12 pb-3 flex justify-between items-center transition-transform duration-300 -translate-y-full">
+            <div class="flex flex-col">
+                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">当前状态</span>
+                <div class="flex items-baseline gap-1">
+                    <span class="text-xs text-gray-400">廉洁指数</span>
+                    <span id="score-display" class="text-xl font-bold text-gray-800 tabular-nums">100</span>
+                </div>
+            </div>
+            <div class="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <div id="progress-bar" class="h-full bg-emerald-500 rounded-full progress-fill" style="width: 100%"></div>
+            </div>
+        </header>
+
+        <!-- 主内容区域 (Pages) -->
+        <main class="flex-grow relative w-full h-full overflow-hidden">
+            
+            <!-- 1. 开始页面 -->
+            <div id="page-start" class="absolute inset-0 flex flex-col justify-between p-8 bg-white z-10 page-transition">
+                <div class="mt-16 flex flex-col items-center text-center space-y-6">
+                    <div class="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 shadow-sm mb-2">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    </div>
+                    
+                    <!-- 小标题 -->
+                    <h2 class="inline-block bg-blue-50 text-blue-700 text-xs font-bold px-3 py-1.5 rounded-full tracking-wide">
+                        广州国资管理集团纪委廉洁“剧本杀”
+                    </h2>
+
+                    <h1 class="text-4xl font-bold text-gray-900 tracking-tight leading-tight">
+                        经营路上的<br><span class="text-blue-600 font-serif-sc">“护身符”</span>
+                    </h1>
+                    
+                    <p class="text-gray-500 text-lg leading-relaxed">
+                        业务拓展中的风险推演<br>既要“冲得快”，也要“走得稳”
+                    </p>
+                </div>
+                
+                <div class="space-y-4 pb-10">
+                    <div class="p-4 bg-gray-50 rounded-2xl flex gap-4 items-start border border-gray-100">
+                        <div class="bg-white p-2 rounded-full shadow-sm text-amber-500 flex-shrink-0">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                        </div>
+                        <div class="text-sm text-gray-600 leading-snug text-left">
+                            <strong class="text-gray-900 block mb-1">游戏规则</strong>
+                            你将面临 4 个具体的抉择。请在每一次抉择中，试着寻找那条“既不负公司重托，又不负廉洁底线”的最优路径。
+                        </div>
+                    </div>
+
+                    <button onclick="game.start()" class="ios-btn w-full py-4 bg-blue-600 text-white font-semibold rounded-2xl text-lg shadow-lg shadow-blue-200">
+                        开始模拟
+                    </button>
+                    <p class="text-center text-xs text-gray-300">廉洁从业 · 行稳致远</p>
+                </div>
+            </div>
+
+            <!-- 2. 游戏主界面 -->
+            <div id="page-game" class="absolute inset-0 flex flex-col bg-[#F2F2F7] opacity-0 pointer-events-none page-transition z-0">
+                <!-- 顶部留白给导航栏 -->
+                <div class="h-24 flex-shrink-0"></div> 
+
+                <!-- 滚动内容区 -->
+                <div id="game-scroll-area" class="flex-grow overflow-y-auto px-5 pb-32 no-scrollbar scroll-smooth">
+                    
+                    <!-- 场景图片卡片 -->
+                    <div class="ios-card overflow-hidden mb-6 relative group">
+                        <div class="h-48 bg-gray-200 relative overflow-hidden">
+                            <!-- 图片容器 -->
+                            <img id="scene-img" src="" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="Scene">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                            <div class="absolute bottom-4 left-4 text-white">
+                                <div id="scene-role-badge" class="inline-block px-2 py-0.5 bg-white/20 backdrop-blur-md rounded-md text-[10px] font-bold uppercase tracking-wider mb-1">当前角色</div>
+                                <h2 id="scene-role-name" class="text-xl font-bold font-serif-sc text-shadow-sm">角色名</h2>
+                            </div>
+                        </div>
+                        <div class="p-5">
+                            <p id="scene-text" class="text-gray-600 text-[15px] leading-relaxed">场景描述...</p>
+                        </div>
+                    </div>
+
+                    <!-- 对话气泡区 -->
+                    <div id="dialogue-area" class="space-y-4 mb-6">
+                        <!-- JS 注入对话 -->
+                    </div>
+
+                    <!-- 内心独白 (Warm Style) -->
+                    <div class="mb-8 px-2 animate-pulse-slow">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="text-blue-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10 10 10 0 0 0-10-10zm0 14a1 1 0 1 1 1-1 1 1 0 0 1-1 1zm1-4a1 1 0 0 1-2 0V9a1 1 0 0 1 2 0z"/></svg>
+                            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">内心独白</span>
+                        </div>
+                        <p id="monologue-text" class="text-gray-500 text-sm italic font-serif-sc leading-relaxed pl-6 border-l-2 border-blue-100">
+                            内心独白内容...
+                        </p>
+                    </div>
+
+                </div>
+
+                <!-- 底部选项区 (固定) -->
+                <div class="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#F2F2F7] via-[#F2F2F7] to-transparent pt-10">
+                    <button onclick="ui.showOptions()" class="ios-btn w-full py-4 bg-white text-blue-600 font-semibold rounded-2xl text-lg shadow-lg border border-blue-50 flex items-center justify-center gap-2">
+                        <span>做出选择</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 3. 结算页面 -->
+            <div id="page-end" class="absolute inset-0 flex flex-col items-center justify-center p-6 bg-white opacity-0 pointer-events-none page-transition z-0">
+                <div class="w-full max-w-sm text-center">
+                    <div id="end-icon" class="w-24 h-24 mx-auto rounded-full bg-gray-50 flex items-center justify-center mb-6 shadow-sm">
+                        <!-- Icon injected by JS -->
+                    </div>
+                    <h2 id="end-title" class="text-2xl font-bold text-gray-900 font-serif-sc mb-4">评估报告</h2>
+                    <p id="end-desc" class="text-gray-500 leading-relaxed mb-8">报告描述...</p>
+                    
+                    <div class="bg-gray-50 rounded-2xl p-6 mb-8 border border-gray-100">
+                        <div class="text-xs text-gray-400 uppercase tracking-widest mb-2">最终得分</div>
+                        <div id="end-score" class="text-5xl font-bold text-gray-900 tracking-tighter">0</div>
+                    </div>
+
+                    <button onclick="game.showAppendix()" class="ios-btn w-full py-3.5 bg-gray-900 text-white font-semibold rounded-xl mb-4 shadow-lg shadow-gray-200">
+                        查看详细复盘
+                    </button>
+                    <button onclick="game.restart()" class="ios-btn w-full py-3.5 bg-white text-gray-600 font-medium rounded-xl border border-gray-200">
+                        重新开始
+                    </button>
+                </div>
+            </div>
+
+            <!-- 4. 复盘列表页 -->
+            <div id="page-appendix" class="absolute inset-0 bg-gray-50 overflow-y-auto opacity-0 pointer-events-none page-transition z-0">
+                <div class="px-6 py-12">
+                    <h2 class="text-2xl font-bold text-gray-900 font-serif-sc mb-8">模拟复盘</h2>
+                    <div id="appendix-list" class="space-y-4">
+                        <!-- JS List -->
+                    </div>
+                    <div class="h-20"></div>
+                    <button onclick="game.restart()" class="ios-btn w-full py-3 bg-white border border-gray-300 text-gray-900 font-semibold rounded-xl">返回首页</button>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- 遮罩层 (用于 Sheet) -->
+        <div id="overlay" class="absolute inset-0 sheet-overlay opacity-0 pointer-events-none z-30" onclick="ui.closeOptions()"></div>
+
+        <!-- 选项 Sheet (底部弹窗) -->
+        <div id="options-sheet" class="absolute bottom-0 left-0 right-0 bg-white bottom-sheet z-40 transform translate-y-full flex flex-col max-h-[80vh]">
+            <div class="w-full flex justify-center pt-3 pb-1">
+                <div class="w-10 h-1 bg-gray-300 rounded-full"></div>
+            </div>
+            <div class="px-6 py-4">
+                <h3 class="text-lg font-bold text-gray-900">你会怎么做？</h3>
+                <p class="text-xs text-gray-400 mt-1">请选择最符合你直觉的行动</p>
+            </div>
+            <div id="options-list" class="flex-grow overflow-y-auto px-5 pb-safe space-y-3 pb-10">
+                <!-- 选项按钮注入区 -->
+            </div>
+        </div>
+
+        <!-- 结果反馈 Sheet -->
+        <div id="feedback-sheet" class="absolute bottom-0 left-0 right-0 bg-white bottom-sheet z-50 transform translate-y-full flex flex-col max-h-[90vh]">
+            <!-- 头部颜色条 -->
+            <div id="feedback-header" class="h-16 w-full flex items-center px-6 gap-3 border-b border-gray-100">
+                <!-- Icon & Title -->
+            </div>
+            
+            <div class="p-6 overflow-y-auto no-scrollbar pb-24">
+                <p id="feedback-desc" class="text-gray-700 text-[15px] leading-relaxed mb-6"></p>
+                
+                <div class="bg-red-50 rounded-2xl p-5 border border-red-100 mb-6">
+                    <div class="flex items-center gap-2 mb-2 text-red-700">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        <span class="text-xs font-bold uppercase tracking-wider">纪法红线</span>
+                    </div>
+                    <p id="feedback-reg" class="text-sm text-red-900 font-serif-sc leading-relaxed opacity-90"></p>
+                </div>
+            </div>
+            
+            <!-- 固定在底部的按钮 -->
+            <div class="absolute bottom-0 left-0 right-0 p-5 bg-white border-t border-gray-100 pb-8">
+                <button id="next-btn" class="ios-btn w-full py-4 bg-gray-900 text-white font-semibold rounded-2xl text-lg shadow-lg">
+                    继续下一关
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 核心数据 (根据2023新条例修正) ---
+        const gameConfig = {
+            initialScore: 100,
+            deductionPerError: 25,
+            scenes: [
+                {
+                    id: 1,
+                    role: "小李 · 市场营销专员",
+                    sceneText: "公司今年大力推广旗下的“老字号”礼盒产品，并开展了全员营销活动。你联系到了一家大型民企的行政总监王总，对方对产品很感兴趣，这笔订单如果谈成，不仅能完成你的年度任务，还有活动奖励提成。",
+                    
+                    // 【请在此处替换图片路径】▼▼▼ 将下面的 "photo1.jpg" 改为您自己的图片文件名
+                    imageUrl: "1.png", 
+                    
+                    dialogue: [
+                        { speaker: "王总", text: "小李啊，你们的产品确实不错，我们年底正好要发福利，大概采购100万元。不过你也知道，现在这行竞争激烈。要不你在这周安排个‘局’，大家放松放松，或者...意思一下，这单子我就直接签给你。" }
+                    ],
+                    monologue: "部门这个月业绩还差一大截，这笔100万的单子太关键了。王总暗示的‘局’，肯定不是吃顿便饭那么简单。如果不答应，这单子八成要黄；如果答应了，这就得公款报销或者我自己垫钱..." ,
+                    options: [
+                        { text: "先接话再转圈。笑着说：“王总您抬举了，能得到您的认可我们特别重视！您看这样行不，我把咱们产品工艺手册整理好发您，售后我亲自盯，保证交货和服务都让您省心。您要是觉得价格还有得谈，我申请下给您争取个大点的折扣，给您实打实的优惠", isCorrect: true },
+                        { 
+                            text: "为了业绩豁出去了。请王总去高档私人会所消费8000元，并找餐厅开几张不同日期的“工作餐”发票报销。", 
+                            outcome: { 
+                                title: "违规吃喝与虚假报销", 
+                                desc: "财务审核发现发票连号且金额异常。经核查，你违反有关规定出入私人会所，超标准接待，并伪造业务招待费名目试图报销高消费娱乐费用。", 
+                                reg: "《中国共产党纪律处分条例》第一百零二条：违反有关规定出入私人会所...<br>第一百一十三条：违反有关规定组织、参加用公款支付的宴请、高消费娱乐、健身活动...<br>第一百一十六条：违反公务接待管理规定，超标准、超范围接待或者借机大吃大喝..." 
+                            } 
+                        },
+                        { 
+                            text: "想个更直接的办法。私下买两张2000元购物卡送给王总，费用分摊到礼盒的“办公用品”采购成本里报销。", 
+                            outcome: { 
+                                title: "虚列开支公款赠送礼品礼金", 
+                                desc: "公司追查了这笔“办公用品”的去向，你无法解释。无论金额大小，通过虚列开支购买消费卡送礼都是明确的违纪行为。", 
+                                reg: "《中国共产党纪律处分条例》第一百一十三条：...用公款购买赠送、发放礼品、礼金、消费卡（券）等..." 
+                            } 
+                        },
+                        { 
+                            text: "私下组织一个普通饭局，在饭局上告诉王总可以从订单里给他返3个点的“咨询费”让他自己扣下，并保证不透露给其他人", 
+                            outcome: { 
+                                title: "商业贿赂风险", 
+                                desc: "你承诺的“回扣”属于商业贿赂范畴，严重违反国家法律法规。", 
+                                reg: "《中华人民共和国刑法》相关规定<br>《中国共产党纪律处分条例》第三十条： 党组织在纪律审查中发现党员有刑法规定的行为，虽不构成犯罪但须追究党纪责任的，或者有其他破坏社会主义市场经济秩序、违反治安管理等违法行为，损害党、国家和人民利益的..." 
+                            } 
+                        }
+                    ]
+                },
+                {
+                    id: 2,
+                    role: "小张 · 物业管家",
+                    sceneText: "你管理的餐饮商户为了赶在“五一”前开业，正在通宵赶工。巡查时你发现，装修队为了多隔出两个包间，擅自改动了消防喷淋的管道位置，且并未向物业报备。眼看天花板就要封顶了，一旦封上，这就是典型的“隐蔽工程”违规。",
+                    
+                    // 【请在此处替换图片路径】▼▼▼ 将下面的 "photo2.jpg" 改为您自己的图片文件名
+                    imageUrl: "2.png",
+
+                    dialogue: [
+                        { speaker: "商户老板", text: "哎呀张工，您看这工人都等着封板呢。我要是现在停工去报备，再等审核还要改图纸，这“五一”我就开不了业了，损失得好几十万啊！其实就是挪个管子，水照样能喷出来。您高抬贵手，帮我签个《隐蔽工程验收单》，这点心意（两千元超市卡）您拿着，回头我那大包间常年给您留着！" }
+                    ],
+                    monologue: "这确实是违规，但说实话，只是喷淋移位，如果我卡住他，他就要错过黄金周，肯定会记恨我，以后物业费更难收。而且这红包够我抵大半个月房贷了……只要字签了，板一封，谁知道里面怎么走的管？",
+                    options: [
+                        { text: "明确告知这是消防红线，坚决不予验收签字，责令停工整改直到符合规范。虽然得罪了人，但把安全隐患消灭在了萌芽状态。", isCorrect: true },
+                        { 
+                            text: "“与人方便自己方便”，收下了购物卡，在未实地测量合规性的情况下，在验收单上签了字，让工人封了顶。”。", 
+                            outcome: { 
+                                title: "收受贿赂与失职", 
+                                desc: "你收受好处费，影响公正执行公务，明知存在安全隐患却选择视而不见。", 
+                                reg: "《中国共产党纪律处分条例》第九十七条： 收受可能影响公正执行公务的礼品、礼金、消费卡（券）和有价证券、股权、其他金融产品等财物..." 
+                            } 
+                        },
+                        { 
+                            text: "你没敢收卡，但经不住老板的软磨硬泡和“兄弟义气”，晚上去吃了他安排的“答谢宴”，席间答应让他先封板，手续后面慢慢补。", 
+                            outcome: { 
+                                title: "违规接受宴请", 
+                                desc: "“先上车后补票”是工程管理的大忌。你接受宴请并违规操作，虽然没收钱收礼，但依然不仅违反了廉洁纪律，更埋下了安全雷管。", 
+                                reg: "《中国共产党纪律处分条例》第一百零一条：接受、提供可能影响公正执行公务的宴请或者旅游、健身、娱乐等活动安排..." 
+                            } 
+                        },
+                        { 
+                            text: "你暗示老板，你自己不敢担这个责，但你认识一个专门做消防整改的朋友，“花点小钱”让他来弄，既能过审又能让你从中抽成。", 
+                            outcome: { 
+                                title: "违规从事营利活动/插手工程", 
+                                desc: "利用职务之便，向管理对象推荐施工队并从中获利，这是典型的“靠企吃企”。你把手中的公权力变成了自己做生意的筹码。", 
+                                reg: "《中国共产党纪律处分条例》第一百零三条：...利用职权或者职务上的影响，为本人配偶、子女及其配偶等亲属和其他特定关系人的经营活动谋取利益..." 
+                            } 
+                        }
+                    ]
+                },
+                {
+                    id: 3,
+                    role: "小刘 · 资产租赁专员",
+                    sceneText: "一家商户租约即将到期，按规定不续签需提前3个月腾退。商户经营困难，希望能免除这3个月租金作为“装修补偿”，这不符合规定。商户老板多次找你求情。",
+                    
+                    // 【请在此处替换图片路径】▼▼▼ 将下面的 "photo3.jpg" 改为您自己的图片文件名
+                    imageUrl: "3.png",
+
+                    dialogue: [
+                        { speaker: "商户老板", text: "刘经理，帮帮忙吧。只要您帮我争取到免租期，事成之后，减免租金的一半我转给您。" }
+                    ],
+                    monologue: "那个铺面确实有点旧，装修翻新的确花了不少时间和金钱。而且那一半的感谢费很诱人。只是...",
+                    options: [
+                        { text: "温情劝导，合规止损：“李总，生意难做我都看在眼里，但这钱我绝对不能收。我能做的是帮您盯着点退租流程，争取最快速度完成结算把押金退给您，帮您回笼资金。", isCorrect: true },
+                        { 
+                            text: "你拒绝了好处费，但考虑到他经营不容易，还是在验收单上夸大破损程度，编造漏水等理由，帮商户通过了免租申请。", 
+                            outcome: { 
+                                title: "造成国有资产损失", 
+                                desc: "弄虚作假减少应收租金，造成国有资产流失。后续复核现场发现房屋状况良好，造假行为败露。", 
+                                reg: "《中国共产党纪律处分条例》第一百四十九条：在党的纪律检查、组织、宣传、统一战线工作以及机关工作等其他工作中，不履行或者不正确履行职责，造成损失或者不良影响的..." 
+                            } 
+                        },
+                        { 
+                            text: "你暗示老板，直接申请免租肯定批不下来，但你可以这三个月暂时不给他发正式催款函，帮他把这笔钱拖到年底再说。", 
+                            outcome: { 
+                                title: "弄虚作假", 
+                                desc: "你为了私情或小利，不如实上报商户欠费实情，擅自给予商户“超长账期”。这种行为掩盖了真实的经营风险，导致公司资金被长期无偿占用，性质同样严重。", 
+                                reg: "《中国共产党纪律处分条例》第一百四十九条：在党的纪律检查、组织、宣传、统一战线工作以及机关工作等其他工作中，不履行或者不正确履行职责，造成损失或者不良影响的..." 
+                            } 
+                        },
+                        { 
+                            text: "暗示老板免租不好办，但如果你故意拖延发催款函也能帮他拖几个月，前提是得给点好处。", 
+                            outcome: { 
+                                title: "吃拿卡要", 
+                                desc: "利用手中权力“卡”脖子、换好处，这是典型的“微腐败”，严重损害公司形象。", 
+                                reg: "《中国共产党纪律处分条例》第九十七条：收受可能影响公正执行公务的礼品、礼金...等财物<br>第一百二十二条：有下列行为之一：...（四）在管理、服务活动中违反有关规定收取费用..." 
+                            } 
+                        }
+                    ]
+                },
+                {
+                    id: 4,
+                    role: "陈经理 · 部门负责人",
+                    sceneText: "年底部门还有一笔“培训费”没花完。整年都没有组织过培训，大家提议组织去周边温泉度假村，既可以培训也可以休闲两天。但按规定，团建不能去风景名胜区，也不能涉及高消费娱乐。",
+                    
+                    // 【请在此处替换图片路径】▼▼▼ 将下面的 "photo4.jpg" 改为您自己的图片文件名
+                    imageUrl: "4.png",
+
+                    dialogue: [
+                        { speaker: "业务骨干大周", text: "陈经理，这钱不花就收回了。我们就去度假村，让那边开‘会议费’或‘培训费’发票，做个假签到表，肯定能报销。大家都盼着呢，您就签字吧。" }
+                    ],
+                    monologue: "队伍确实不好带，是该奖励一下。如果不批显得我不近人情；可是去度假村还要伪造会议记录，这风险...",
+                    options: [
+                        { text: "提议在市区内找合规机构组织开展培训，严格按标准列支，拒绝变相公款旅游。", isCorrect: true },
+                        { 
+                            text: "同意大家提议，并签字批准了伪造的“业务培训”报销单。", 
+                            outcome: { 
+                                title: "公款旅游", 
+                                desc: "借“培训”之名行“旅游”之实。巡察组核查了出行记录和消费明细，认定为公款旅游。", 
+                                reg: "《中国共产党纪律处分条例》第一百一十五条：有下列行为之一：（一）公款旅游或者以学习培训、考察调研、职工疗养等为名变相公款旅游..." 
+                            } 
+                        },
+                        { 
+                            text: "让大家找餐饮、交通发票凑一凑，把这笔钱套出来给大家发红包。", 
+                            outcome: { 
+                                title: "违规发放津补贴", 
+                                desc: "套取资金违规发放现金奖励，属于私设“小金库”和违规发放津补贴。", 
+                                reg: "《中国共产党纪律处分条例》第一百一十四条：违反有关规定自定薪酬或者滥发津贴、补贴、奖金等..." 
+                            } 
+                        },
+                        { 
+                            text: "让综合员用这笔钱买几个电子产品，名义上是“办公设备”，实际发给骨干带回家用。", 
+                            outcome: { 
+                                title: "侵占公物", 
+                                desc: "将公款购买的物品据为己有。资产盘点时，这些莫名消失的“办公设备”成了你的罪证。", 
+                                reg: "《中国共产党纪律处分条例》第一百一十一条：...将公款购买的礼品、食品、土特产等，将应当归公的礼品、礼金，据为己有..." 
+                            } 
+                        }
+                    ]
+                }
+            ],
+            endings: {
+                success: { title: "廉洁合规", desc: "恭喜！你证明了在经营中，业务拓展与廉洁合规并非对立。只有守住底线，业务之路才能走得长远。", scoreClass: "text-emerald-500" },
+                failure: { title: "存在风险", desc: "你触碰了纪律红线。这些场景在日常工作中极易发生，请记住：只有守住底线，业务之路才能走得长远。", scoreClass: "text-red-500" }
+            }
+        };
+
+        // --- 逻辑控制 ---
+        const ui = {
+            screens: {
+                start: document.getElementById('page-start'),
+                game: document.getElementById('page-game'),
+                end: document.getElementById('page-end'),
+                appendix: document.getElementById('page-appendix')
+            },
+            header: document.getElementById('nav-header'),
+            progressBar: document.getElementById('progress-bar'),
+            scoreDisplay: document.getElementById('score-display'),
+            optionsSheet: document.getElementById('options-sheet'),
+            feedbackSheet: document.getElementById('feedback-sheet'),
+            overlay: document.getElementById('overlay'),
+            
+            // 切换页面
+            navigateTo(pageId) {
+                // Hide all
+                Object.values(this.screens).forEach(el => {
+                    el.classList.remove('fade-enter-active');
+                    el.classList.add('fade-exit-active');
+                    setTimeout(() => {
+                        if(!el.classList.contains('fade-enter-active')) {
+                            el.style.opacity = '0';
+                            el.style.pointerEvents = 'none';
+                            el.style.zIndex = '0';
+                        }
+                    }, 400);
+                });
+
+                // Show target
+                const target = this.screens[pageId];
+                target.style.opacity = '1';
+                target.style.pointerEvents = 'auto';
+                target.style.zIndex = '10';
+                target.classList.remove('fade-exit-active');
+                target.classList.add('fade-enter-active');
+
+                // Header logic
+                if (pageId === 'game') {
+                    this.header.classList.remove('-translate-y-full');
+                } else {
+                    this.header.classList.add('-translate-y-full');
+                }
+            },
+
+            updateScore(score) {
+                // 动画数字
+                const start = parseInt(this.scoreDisplay.innerText);
+                const end = score;
+                const duration = 1000;
+                const startTime = performance.now();
+                
+                const animate = (currentTime) => {
+                    const elapsed = currentTime - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const ease = 1 - Math.pow(1 - progress, 3); // cubic ease out
+                    
+                    const current = Math.floor(start + (end - start) * ease);
+                    this.scoreDisplay.innerText = current;
+                    
+                    if(progress < 1) requestAnimationFrame(animate);
+                };
+                requestAnimationFrame(animate);
+
+                // 更新进度条颜色
+                this.progressBar.style.width = score + '%';
+                if(score < 60) this.progressBar.className = "h-full bg-red-500 rounded-full progress-fill";
+                else if(score < 80) this.progressBar.className = "h-full bg-amber-400 rounded-full progress-fill";
+                else this.progressBar.className = "h-full bg-emerald-500 rounded-full progress-fill";
+            },
+
+            renderScene(data) {
+                document.getElementById('scene-img').src = data.imageUrl;
+                document.getElementById('scene-role-name').innerText = data.role.split(' · ')[0];
+                document.getElementById('scene-role-badge').innerText = data.role.split(' · ')[1];
+                document.getElementById('scene-text').innerText = data.sceneText;
+                
+                const dialogueArea = document.getElementById('dialogue-area');
+                dialogueArea.innerHTML = data.dialogue.map(d => `
+                    <div class="flex gap-3">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">
+                            ${d.speaker[0]}
+                        </div>
+                        <div class="chat-bubble shadow-sm max-w-[85%]">
+                            <div class="text-[10px] font-bold text-gray-400 mb-0.5">${d.speaker}</div>
+                            ${d.text}
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('monologue-text').innerText = data.monologue;
+
+                // 渲染选项
+                const optionsList = document.getElementById('options-list');
+                optionsList.innerHTML = '';
+                // 随机排序
+                const shuffled = [...data.options].sort(() => Math.random() - 0.5);
+                shuffled.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = "w-full text-left p-4 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-xl transition-colors duration-200 flex items-start gap-3 border border-gray-100";
+                    btn.innerHTML = `
+                        <div class="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full border-2 border-gray-300"></div>
+                        <span class="text-[15px] font-medium text-gray-800 leading-snug">${opt.text}</span>
+                    `;
+                    btn.onclick = () => game.handleChoice(opt);
+                    optionsList.appendChild(btn);
+                });
+
+                // Scroll to top
+                document.getElementById('game-scroll-area').scrollTop = 0;
+            },
+
+            showOptions() {
+                this.overlay.style.opacity = '1';
+                this.overlay.style.pointerEvents = 'auto';
+                this.optionsSheet.classList.remove('translate-y-full');
+            },
+
+            closeOptions() {
+                this.overlay.style.opacity = '0';
+                this.overlay.style.pointerEvents = 'none';
+                this.optionsSheet.classList.add('translate-y-full');
+            },
+
+            showFeedback(outcome, isCorrect, nextCallback) {
+                this.closeOptions();
+                
+                // Show Overlay again for feedback
+                setTimeout(() => {
+                    this.overlay.style.opacity = '1';
+                    this.overlay.style.pointerEvents = 'auto';
+                    this.feedbackSheet.classList.remove('translate-y-full');
+                }, 300);
+
+                const header = document.getElementById('feedback-header');
+                const desc = document.getElementById('feedback-desc');
+                const reg = document.getElementById('feedback-reg');
+                const btn = document.getElementById('next-btn');
+
+                if (isCorrect) {
+                    header.className = "h-16 w-full flex items-center px-6 gap-3 border-b border-gray-100 bg-emerald-50 text-emerald-700 rounded-t-[24px]";
+                    header.innerHTML = `
+                        <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+                        <span class="font-bold text-lg">决策合规</span>
+                    `;
+                    desc.innerText = "你做出了正确的判断。在面对诱惑和压力时，懂得变通，坚持原则是保护自己和公司最有效的方式。";
+                    reg.parentElement.style.display = 'none'; // 隐藏红线区域
+                    btn.innerText = "进入下一关";
+                } else {
+                    header.className = "h-16 w-full flex items-center px-6 gap-3 border-b border-gray-100 bg-red-50 text-red-700 rounded-t-[24px]";
+                    header.innerHTML = `
+                        <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></div>
+                        <span class="font-bold text-lg">${outcome.title}</span>
+                    `;
+                    desc.innerText = outcome.desc;
+                    reg.parentElement.style.display = 'block';
+                    reg.innerHTML = outcome.reg;
+                    btn.innerText = "尝试重选"; // 按钮文字改为重选
+                }
+
+                // 强制阅读倒计时
+                let count = isCorrect ? 0 : 3;
+                if(count > 0) {
+                    btn.disabled = true;
+                    let originalText = btn.innerText;
+                    btn.innerText = `请阅读 (${count})`;
+                    btn.classList.add('opacity-50');
+                    const timer = setInterval(() => {
+                        count--;
+                        if(count <= 0) {
+                            clearInterval(timer);
+                            btn.disabled = false;
+                            btn.innerText = originalText;
+                            btn.classList.remove('opacity-50');
+                        } else {
+                            btn.innerText = `请阅读 (${count})`;
+                        }
+                    }, 1000);
+                } else {
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50');
+                }
+
+                btn.onclick = () => {
+                    this.feedbackSheet.classList.add('translate-y-full');
+                    this.overlay.style.opacity = '0';
+                    this.overlay.style.pointerEvents = 'none';
+                    setTimeout(nextCallback, 400);
+                };
+            }
+        };
+
+        const game = {
+            state: {
+                actIndex: 0,
+                score: 100,
+                history: []
+            },
+
+            start() {
+                this.state.score = 100;
+                this.state.actIndex = 0;
+                this.state.history = [];
+                ui.updateScore(100);
+                this.loadScene();
+                ui.navigateTo('game');
+            },
+
+            loadScene() {
+                const scene = gameConfig.scenes[this.state.actIndex];
+                ui.renderScene(scene);
+            },
+
+            handleChoice(opt) {
+                const scene = gameConfig.scenes[this.state.actIndex];
+                
+                if (opt.isCorrect) {
+                    this.state.history.push({ scene: scene.role, result: "合规", desc: "坚持原则，规避风险", isGood: true });
+                    ui.showFeedback(null, true, () => this.nextLevel());
+                } else {
+                    this.state.score = Math.max(0, this.state.score - gameConfig.deductionPerError);
+                    ui.updateScore(this.state.score);
+                    this.state.history.push({ scene: scene.role, result: opt.outcome.title, desc: opt.outcome.desc, isGood: false });
+                    
+                    // 核心修改：错误时回调函数不执行 nextLevel，而是什么都不做（留在此页等待重选）
+                    ui.showFeedback(opt.outcome, false, () => {
+                        // 留在当前页，用户可以再次点击底部的“做出选择”
+                    });
+                }
+            },
+
+            nextLevel() {
+                this.state.actIndex++;
+                if (this.state.actIndex < gameConfig.scenes.length) {
+                    this.loadScene();
+                } else {
+                    this.finish();
+                }
+            },
+
+            finish() {
+                const isSuccess = this.state.score === 100;
+                const ending = isSuccess ? gameConfig.endings.success : gameConfig.endings.failure;
+                
+                document.getElementById('end-score').innerText = this.state.score;
+                document.getElementById('end-score').className = `text-5xl font-bold tracking-tighter ${ending.scoreClass}`;
+                document.getElementById('end-title').innerText = ending.title;
+                document.getElementById('end-desc').innerText = ending.desc;
+                
+                const iconContainer = document.getElementById('end-icon');
+                if(isSuccess) {
+                    iconContainer.className = "w-24 h-24 mx-auto rounded-full bg-emerald-50 flex items-center justify-center mb-6 shadow-sm";
+                    iconContainer.innerHTML = `<svg class="w-10 h-10 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+                } else {
+                    iconContainer.className = "w-24 h-24 mx-auto rounded-full bg-red-50 flex items-center justify-center mb-6 shadow-sm";
+                    iconContainer.innerHTML = `<svg class="w-10 h-10 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+                }
+
+                ui.navigateTo('end');
+            },
+
+            showAppendix() {
+                const list = document.getElementById('appendix-list');
+                list.innerHTML = this.state.history.map((item, idx) => `
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex gap-4 items-start">
+                        <div class="mt-1 flex-shrink-0">
+                            ${item.isGood 
+                                ? '<div class="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center"><svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div>'
+                                : '<div class="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center"><svg class="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></div>'
+                            }
+                        </div>
+                        <div>
+                            <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">场景 ${idx + 1}</div>
+                            <h4 class="font-bold text-gray-900 text-sm mb-1">${item.result}</h4>
+                            <p class="text-xs text-gray-500 leading-relaxed">${item.desc}</p>
+                        </div>
+                    </div>
+                `).join('');
+                ui.navigateTo('appendix');
+            },
+
+            restart() {
+                ui.navigateTo('start');
+            }
+        };
+
+        // Prevent iOS rubber banding
+        document.body.addEventListener('touchmove', function(e) {
+            if (e.target.closest('.no-scrollbar') || e.target.closest('.overflow-y-auto')) {
+                // Allow scroll inside containers
+            } else {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+    </script>
+</body>
+</html>
