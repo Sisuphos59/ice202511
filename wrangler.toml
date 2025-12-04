@@ -1,0 +1,5 @@
+# 纯HTML项目的Cloudflare配置
+name = "ice2025111"  # 随便改，比如填你的项目名，不影响部署
+compatibility_date = "2025-12-04"
+# 关键：./ 表示“项目根目录”，Cloudflare会直接找这里的HTML文件
+assets = { directory = "./" }
